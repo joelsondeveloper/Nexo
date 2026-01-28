@@ -1,0 +1,79 @@
+@import "tailwindcss";
+@import "../lib/tokens/index.css";
+
+/* 
+   1. DEFINIÇÃO DO TEMA (Mapeamento Direto)
+   Aqui registramos as classes do Tailwind apontando para os seus tokens Light.
+*/
+@theme {
+  /* Cores - Base (Light) */
+  --color-background-primary: var(--token-color-light-background-primary);
+  --color-background-secondary: var(--token-color-light-background-secondary);
+
+  --color-primary: var(--token-color-light-primary);
+  --color-primary-hover: var(--token-color-light-primary-hover);
+  --color-primary-soft: var(--token-color-light-primary-soft);
+
+  --color-text-primary: var(--token-color-light-text-primary);
+  --color-text-secondary: var(--token-color-light-text-secondary);
+  --color-text-muted: var(--token-color-light-text-muted);
+
+  --color-success: var(--token-color-light-success);
+  --color-warning: var(--token-color-light-warning);
+  --color-error: var(--token-color-light-error);
+  --color-income: var(--token-color-light-income);
+  --color-expense: var(--token-color-light-expense);
+
+  --color-border-subtle: var(--token-color-light-border-subtle);
+  --color-surface: var(--token-color-light-surface);
+
+  /* Typography */
+  --font-sans: var(--token-font-sans);
+
+  /* Radius */
+  --radius-sm: var(--token-radius-sm);
+  --radius-md: var(--token-radius-md);
+  --radius-lg: var(--token-radius-lg);
+  --radius-xl: var(--token-radius-xl);
+
+  /* Spacing */
+  --spacing-xs: var(--token-spacing-xs);
+  --spacing-sm: var(--token-spacing-sm);
+  --spacing-md: var(--token-spacing-md);
+  --spacing-lg: var(--token-spacing-lg);
+  --spacing-xl: var(--token-spacing-xl);
+
+  /* Shadows */
+  --shadow-sm: var(--token-shadow-sm);
+  --shadow-md: var(--token-shadow-md);
+  --shadow-lg: var(--token-shadow-lg);
+}
+
+/* 
+   2. COMPORTAMENTO DARK MODE
+   No Tailwind v4, as variáveis definidas no @theme acima viram variáveis CSS reais.
+   Para mudar o tema, sobrescrevemos os valores dessas variáveis aqui.
+*/
+.dark {
+  --color-background-primary: var(--token-color-dark-background-primary);
+  --color-background-secondary: var(--token-color-dark-background-secondary);
+
+  --color-primary: var(--token-color-dark-primary);
+  --color-primary-hover: var(--token-color-dark-primary-hover);
+  --color-primary-soft: var(--token-color-dark-primary-soft);
+
+  --color-text-primary: var(--token-color-dark-text-primary);
+  --color-text-secondary: var(--token-color-dark-text-secondary);
+  --color-text-muted: var(--token-color-dark-text-muted);
+
+  --color-success: var(--token-color-dark-success);
+  --color-warning: var(--token-color-dark-warning);
+  --color-error: var(--token-color-dark-error);
+  --color-income: var(--token-color-dark-income);
+  --color-expense: var(--token-color-dark-expense);
+
+  --color-border-subtle: var(--token-color-dark-border-subtle);
+  
+  /* Se não houver token dark específico para surface, ele pode repetir o background */
+  --color-surface: var(--token-color-dark-background-primary);
+}
