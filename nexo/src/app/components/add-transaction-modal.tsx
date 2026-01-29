@@ -1,8 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { X, ArrowUpCircle, ArrowDownCircle, Calendar, Tag, AlignLeft } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  X,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Calendar,
+  Tag,
+  AlignLeft,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNexoStore } from "../store/nexo-store";
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -16,28 +24,56 @@ interface AddTransactionModalProps {
   }) => void;
 }
 
-export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionModalProps) {
+export function AddTransactionModal({
+  isOpen,
+  onClose,
+  onAdd,
+}: AddTransactionModalProps) {
   const [tipo, setTipo] = useState<"income" | "expense">("income");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [data, setData] = useState(new Date().toISOString().split("T")[0]);
   const [categoria, setCategoria] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const {
+    transacaoParaEditar,
+    setTransacaoParaEditar,
+    editarMovimentacao,
+    adicionarMovimentacao,
+  } = useNexoStore();
+
+  useEffect(() => {
+    if (transacaoParaEditar) {
+      setTipo(transacaoParaEditar.tipo);
+      setDescricao(transacaoParaEditar.descricao);
+      setValor(transacaoParaEditar.valor.toString());
+      setCategoria(transacaoParaEditar.categoria);
+      setData(transacaoParaEditar.data);
+    } else {
+      // Reset para modo "Novo"
+      setTipo("income");
+      setDescricao("");
+      setValor("");
+      setCategoria("");
+      setData(new Date().toISOString().split("T")[0]);
+    }
+  }, [transacaoParaEditar]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!descricao.trim() || !valor || !categoria.trim()) return;
-
-    onAdd({
+    const dados = {
       tipo,
-      descricao: descricao.trim(),
-      valor: parseFloat(valor.replace(",", ".")),
+      descricao,
+      valor: parseFloat(valor),
+      categoria,
       data,
-      categoria: categoria.trim(),
-    });
+    };
 
-    setDescricao("");
-    setValor("");
-    setCategoria("");
+    if (transacaoParaEditar) {
+      await editarMovimentacao(transacaoParaEditar.id, dados);
+    } else {
+      await adicionarMovimentacao(dados);
+    }
     onClose();
   };
 
@@ -66,8 +102,13 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
             <div className="w-12 h-1.5 bg-border-subtle rounded-full mx-auto mb-6 sm:hidden" />
 
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-text-primary">Novo Registro</h2>
-              <button onClick={onClose} className="p-2 text-text-muted hover:bg-background-secondary rounded-full">
+              <h2 className="text-xl font-bold text-text-primary">
+                {transacaoParaEditar ? "Editar Registro" : "Novo Registro"}
+              </h2>
+              <button
+                onClick={onClose}
+                className="p-2 text-text-muted hover:bg-background-secondary rounded-full"
+              >
                 <X size={24} />
               </button>
             </div>
@@ -79,7 +120,9 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
                   type="button"
                   onClick={() => setTipo("income")}
                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${
-                    tipo === "income" ? "bg-surface text-income shadow-sm" : "text-text-muted"
+                    tipo === "income"
+                      ? "bg-surface text-income shadow-sm"
+                      : "text-text-muted"
                   }`}
                 >
                   <ArrowUpCircle size={20} /> Entrada
@@ -88,7 +131,9 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
                   type="button"
                   onClick={() => setTipo("expense")}
                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-all ${
-                    tipo === "expense" ? "bg-surface text-expense shadow-sm" : "text-text-muted"
+                    tipo === "expense"
+                      ? "bg-surface text-expense shadow-sm"
+                      : "text-text-muted"
                   }`}
                 >
                   <ArrowDownCircle size={20} /> Saída
@@ -97,9 +142,13 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
 
               {/* Valor (Destaque) */}
               <div className="relative">
-                <label className="text-xs font-bold text-text-muted uppercase ml-1">Valor</label>
+                <label className="text-xs font-bold text-text-muted uppercase ml-1">
+                  Valor
+                </label>
                 <div className="relative mt-1">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-text-muted">R$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-text-muted">
+                    R$
+                  </span>
                   <input
                     type="number"
                     inputMode="decimal"

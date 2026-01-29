@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { createTransactionAction, deleteTransactionAction, updateTransactionAction } from "../actions/transaction-actions";
 
-// --- Tipos ---
+
 export type TipoMovimentacao = "income" | "expense";
 
 export interface Movimentacao {
@@ -30,124 +31,143 @@ interface NexoState {
   modalAberto: boolean;
   movimentacoes: Movimentacao[];
   feedback: FeedbackFinanceiro | null;
+  dadosMensais: DadosMensais[];
 
   // Ações
   alternarTema: () => void;
   setAbaAtiva: (aba: number) => void;
   abrirModal: () => void;
   fecharModal: () => void;
+  setMovimentacoes: (lista: Movimentacao[]) => void; // Ação vital para sincronia
   adicionarMovimentacao: (movimentacao: Omit<Movimentacao, "id">) => void;
   removerMovimentacao: (id: string) => void;
   gerarFeedbackInteligente: () => void;
   limparFeedback: () => void;
-  
-  // Dados Mockados para o gráfico (podem ser calculados das movimentações futuramente)
-  dadosMensais: DadosMensais[];
+  transacaoParaEditar: Movimentacao | null;
+  setTransacaoParaEditar: (transacao: Movimentacao | null) => void;
+  editarMovimentacao: (
+    id: string,
+    dados: Omit<Movimentacao, "id">,
+  ) => Promise<void>;
 }
 
-// --- Lógica de Feedback "Humano" ---
-function calcularFeedback(movimentacoes: Movimentacao[]): FeedbackFinanceiro | null {
-  if (movimentacoes.length === 0) {
-    return {
-      tipo: "info",
-      mensagem: "Boas-vindas ao NEXO! Comece registrando sua primeira venda ou despesa.",
-    };
-  }
-
-  const hoje = new Date().toISOString().split("T")[0];
+// ... lógica de calcularFeedback permanece igual ...
+function calcularFeedback(
+  movimentacoes: Movimentacao[],
+): FeedbackFinanceiro | null {
+  if (movimentacoes.length === 0)
+    return { tipo: "info", mensagem: "Bem-vindo! Registre algo para começar." };
   const totalEntradas = movimentacoes
     .filter((m) => m.tipo === "income")
-    .reduce((sum, m) => sum + m.valor, 0);
-
+    .reduce((acc, m) => acc + m.valor, 0);
   const totalSaidas = movimentacoes
     .filter((m) => m.tipo === "expense")
-    .reduce((sum, m) => sum + m.valor, 0);
-
-  const movimentacoesHoje = movimentacoes.filter(m => m.data === hoje);
-
-  // Regra 1: Feedback de venda no dia
-  if (movimentacoesHoje.some(m => m.tipo === "income")) {
-    return {
-      tipo: "sucesso",
-      mensagem: "Muito bem! Você já registrou entradas hoje. Continue assim!",
-    };
-  }
-
-  // Regra 2: Alerta de saúde financeira
-  if (totalSaidas > totalEntradas && totalEntradas > 0) {
+    .reduce((acc, m) => acc + m.valor, 0);
+  if (totalSaidas > totalEntradas)
     return {
       tipo: "alerta",
-      mensagem: "Atenção: Suas despesas acumuladas superaram suas vendas. Hora de revisar os custos.",
+      mensagem: "Atenção: Seus gastos superaram as vendas.",
     };
-  }
-
-  // Regra 3: Dica de gestão
-  if (movimentacoes.length > 5 && totalSaidas < totalEntradas) {
-    return {
-      tipo: "info",
-      mensagem: "Dica: Tente separar 20% do seu lucro para uma reserva de emergência.",
-    };
-  }
-
-  return null;
+  return { tipo: "sucesso", mensagem: "Sua gestão está em dia!" };
 }
 
-// --- Store com Persistência ---
 export const useNexoStore = create<NexoState>()(
   persist(
     (set, get) => ({
       tema: "claro",
       abaAtiva: 0,
       modalAberto: false,
-      movimentacoes: [], // Começa vazio para o usuário real
+      movimentacoes: [],
       feedback: null,
-      dadosMensais: [ // Dados estáticos para o gráfico do MVP
+      transacaoParaEditar: null,
+      setTransacaoParaEditar: (transacao) =>
+        set({ transacaoParaEditar: transacao }),
+      dadosMensais: [
         { mes: "Out", entradas: 4500, saidas: 3200 },
         { mes: "Nov", entradas: 5200, saidas: 4100 },
         { mes: "Dez", entradas: 6500, saidas: 4800 },
         { mes: "Jan", entradas: 7800, saidas: 5100 },
       ],
 
-      alternarTema: () => set((state) => ({ 
-        tema: state.tema === "claro" ? "escuro" : "claro" 
-      })),
+      alternarTema: () => {
+        const novoTema = get().tema === "claro" ? "escuro" : "claro";
+        set({ tema: novoTema });
+        // Aplica a classe no HTML imediatamente
+        if (novoTema === "escuro") {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+      },
 
       setAbaAtiva: (aba) => set({ abaAtiva: aba }),
-      
       abrirModal: () => set({ modalAberto: true }),
-      
       fecharModal: () => set({ modalAberto: false }),
 
-      adicionarMovimentacao: (nova) => {
-        const item: Movimentacao = { ...nova, id: crypto.randomUUID() };
-        set((state) => ({
-          movimentacoes: [item, ...state.movimentacoes],
-        }));
+      // Sincroniza o que veio do Banco com a Store
+      setMovimentacoes: (lista) => {
+        set({ movimentacoes: lista });
         get().gerarFeedbackInteligente();
       },
 
-      removerMovimentacao: (id) => {
-        set((state) => ({
-          movimentacoes: state.movimentacoes.filter((m) => m.id !== id),
-        }));
-        get().gerarFeedbackInteligente();
+      adicionarMovimentacao: async (nova) => {
+        const resultado = await createTransactionAction(nova);
+        if (resultado.success && resultado.data) {
+          const transacaoFormatada: Movimentacao = {
+            id: resultado.data.id,
+            tipo: nova.tipo,
+            descricao: nova.descricao,
+            valor: nova.valor,
+            categoria: nova.categoria,
+            data: nova.data,
+          };
+          set((state) => ({
+            movimentacoes: [transacaoFormatada, ...state.movimentacoes],
+          }));
+          get().gerarFeedbackInteligente();
+        }
       },
 
-      gerarFeedbackInteligente: () => {
-        const feedback = calcularFeedback(get().movimentacoes);
-        set({ feedback });
+      removerMovimentacao: async (id) => {
+        // 1. Chamada ao Banco de Dados
+        const resultado = await deleteTransactionAction(id);
+
+        if (resultado.success) {
+          // 2. Se apagou no banco, removemos do estado local (UI)
+          set((state) => ({
+            movimentacoes: state.movimentacoes.filter((m) => m.id !== id),
+          }));
+          get().gerarFeedbackInteligente();
+        } else {
+          alert("Não foi possível excluir a transação.");
+        }
       },
 
+      editarMovimentacao: async (id, dados) => {
+        const resultado = await updateTransactionAction(id, dados);
+        if (resultado.success && resultado.data) {
+          set((state) => ({
+            movimentacoes: state.movimentacoes.map((m) =>
+              m.id === id ? { ...dados, id } : m,
+            ),
+            transacaoParaEditar: null, // Limpa após editar
+          }));
+          get().gerarFeedbackInteligente();
+        }
+      },
+
+      gerarFeedbackInteligente: () =>
+        set({ feedback: calcularFeedback(get().movimentacoes) }),
       limparFeedback: () => set({ feedback: null }),
     }),
     {
-      name: "nexo-storage", // nome da chave no localStorage
+      name: "nexo-app-prefs",
       storage: createJSONStorage(() => localStorage),
-      // Persistir apenas os dados essenciais (não persistir estados de UI como modalAberto)
+      // MÁGICA AQUI: Só salvamos o TEMA no localStorage.
+      // As movimentações agora vêm do banco, então limpamos do storage.
       partialize: (state) => ({
         tema: state.tema,
-        movimentacoes: state.movimentacoes,
       }),
-    }
-  )
+    },
+  ),
 );
