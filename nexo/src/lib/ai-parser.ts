@@ -18,7 +18,7 @@ export async function parseFinanceMessage(text: string) {
           categoria: { type: SchemaType.STRING, description: "Uma categoria curta como 'Vendas', 'Suprimentos', 'Infraestrutura', 'Pessoal'" }
         },
         required: ["descricao", "valor", "tipo", "categoria"],
-      },
+      } as any,
     },
     // Instruções de sistema que ficam separadas do prompt (mais segurança)
     systemInstruction: `Você é um extrator de dados financeiros para microempreendedores brasileiros. 

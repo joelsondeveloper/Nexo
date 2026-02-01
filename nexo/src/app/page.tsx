@@ -3,6 +3,7 @@ import { LoginPage } from "./login/page";
 import { DashboardPage } from "./components/dashboard-page";
 import { AnimatePresence } from "framer-motion";
 import { prisma } from "../lib/prisma";
+import { TipoMovimentacao } from "./store/nexo-store";
 
 export default async function Page() {
   // 1. Buscamos a sessão no servidor (mais rápido e seguro que no cliente)
@@ -27,7 +28,7 @@ export default async function Page() {
 
   const transacoesFormatadas = transacoesDoBanco.map(t => ({
     id: t.id,
-    tipo: t.type === "INCOME" ? "income" : "expense",
+    tipo: ( t.type === "INCOME" ? "income" : "expense" ) as TipoMovimentacao,
     descricao: t.description,
     valor: t.amount,
     categoria: t.category || "Geral",
