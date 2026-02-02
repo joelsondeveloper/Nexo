@@ -4,7 +4,7 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
 
 export async function parseFinanceMessage(text: string) {
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-3-flash-preview",
     generationConfig: {
       temperature: 0.1, // Quase zero para ser determinístico
       responseMimeType: "application/json",
