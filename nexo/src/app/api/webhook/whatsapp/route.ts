@@ -5,59 +5,62 @@ import { revalidatePath } from "next/cache";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    // 1. O Twilio envia dados como x-www-form-urlencoded
+    const formData = await req.formData();
+    const messageText = formData.get("Body") as string; // O que o usuário escreveu
+    const from = formData.get("From") as string; // Ex: whatsapp:+5511999999999
 
-    // 1. Extrair os dados da Evolution API
-    // O campo 'data.message.conversation' contém o texto no padrão da Evolution
-    const messageText = body.data?.message?.conversation || body.data?.message?.extendedTextMessage?.text;
-    const remoteJid = body.data?.key?.remoteJid; // Ex: 5511999999999@s.whatsapp.net
-
-    if (!messageText || !remoteJid) {
-      return NextResponse.json({ message: "Ignorado: Sem conteúdo útil" });
+    if (!messageText || !from) {
+      return new Response("Erro: Dados ausentes", { status: 400 });
     }
 
-    // 2. Limpar o número (remover @s.whatsapp.net)
-    const whatsappNumber = remoteJid.split("@")[0];
+    // 2. Limpa o número (remove 'whatsapp:+' e deixa só os números)
+    const whatsappNumber = from.replace("whatsapp:+", "");
 
-    // 3. Buscar usuário no banco (VITAL PARA SEGURANÇA)
+    // 3. Busca o usuário no Supabase
     const user = await prisma.user.findUnique({
       where: { whatsappNumber: whatsappNumber },
     });
 
     if (!user) {
-      console.log(`Mensagem de número não cadastrado: ${whatsappNumber}`);
-      return NextResponse.json({ message: "Usuário não cadastrado" });
+      // Se o usuário não existir, retornamos um XML vazio que o Twilio entende
+      return new Response("<Response></Response>", { headers: { "Content-Type": "text/xml" } });
     }
 
-    // 4. Processar com a IA
+    // 4. Gemini processa a frase
     const data = await parseFinanceMessage(messageText);
 
-    if (!data || data.valor === 0) {
-      return NextResponse.json({ message: "IA não identificou valores" });
+    if (data && data.valor > 0) {
+      // 5. Salva no Banco
+      await prisma.transaction.create({
+        data: {
+          description: data.descricao,
+          amount: data.valor,
+          type: data.tipo === "income" ? "INCOME" : "EXPENSE",
+          category: data.categoria,
+          source: "WHATSAPP",
+          userId: user.id,
+        },
+      });
+
+      revalidatePath("/");
+
+      // 6. Resposta automática (O Twilio pede formato TwiML - XML)
+      const twimlResponse = `
+        <Response>
+          <Message>✅ *NEXO:* ${data.tipo === 'income' ? 'Venda' : 'Gasto'} de *R$ ${data.valor.toFixed(2)}* salvo!\n📝 ${data.descricao}</Message>
+        </Response>
+      `;
+
+      return new Response(twimlResponse, {
+        headers: { "Content-Type": "text/xml" },
+      });
     }
 
-    // 5. Salvar no Banco vinculado ao usuário
-    await prisma.transaction.create({
-      data: {
-        description: data.descricao,
-        amount: data.valor,
-        type: data.tipo === "income" ? "INCOME" : "EXPENSE",
-        category: data.categoria,
-        source: "WHATSAPP",
-        userId: user.id,
-      },
-    });
-
-    // 6. Atualizar o Dashboard em tempo real
-    revalidatePath("/");
-
-    return NextResponse.json({ 
-      success: true, 
-      message: `Registrado: ${data.descricao} - R$ ${data.valor}` 
-    });
+    return new Response("<Response></Response>", { headers: { "Content-Type": "text/xml" } });
 
   } catch (error) {
-    console.error("ERRO WEBHOOK WHATSAPP:", error);
-    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    console.error("Erro Webhook Twilio:", error);
+    return new Response("Erro interno", { status: 500 });
   }
 }
