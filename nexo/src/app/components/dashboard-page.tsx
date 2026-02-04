@@ -11,6 +11,7 @@ import { ReportsView } from "./reports-view";
 import { FeedbackBanner } from "./feedback-banner";
 import { ChatPage } from "./chat-page";
 import { motion, AnimatePresence } from "framer-motion";
+import { deleteAccountAction } from "../actions/user-actions";
 import {
   TrendingUp,
   TrendingDown,
@@ -25,8 +26,13 @@ import {
   LogOut,
   Sparkles,
   User as UserIcon,
+  ChevronRight,
+  ShieldAlert,
+  Trash2,
+  Info,
 } from "lucide-react";
 import Image from "next/image";
+import { PWAInstallBanner } from "./pwa-install-banner";
 
 interface DashboardPageProps {
   user: any;
@@ -53,7 +59,7 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
 
   const [mostrarChat, setMostrarChat] = useState(false);
 
-  // 1. CORREÇÃO: Sincroniza o tema com o HTML (Persistência ao recarregar)
+  // Sincroniza o tema com o HTML (Persistência)
   useEffect(() => {
     const root = window.document.documentElement;
     if (tema === "escuro") {
@@ -63,32 +69,24 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
     }
   }, [tema]);
 
-  // Sincroniza dados do servidor com a Store local
   useEffect(() => {
-    if (initialData) {
-      setMovimentacoes(initialData);
-    }
+    if (initialData) setMovimentacoes(initialData);
   }, [initialData, setMovimentacoes]);
 
-  // Atualiza os insights da IA sempre que houver novas movimentações
   useEffect(() => {
     gerarFeedbackInteligente();
   }, [gerarFeedbackInteligente, movimentacoes]);
 
-  // Se o modo chat estiver ativo, renderizamos apenas a tela de conversa
   if (mostrarChat) {
     return <ChatPage onVoltar={() => setMostrarChat(false)} user={user} />;
   }
 
-  // Cálculos de Saldo
   const totalEntradas = movimentacoes
     .filter((m) => m.tipo === "income")
     .reduce((sum, m) => sum + m.valor, 0);
-
   const totalSaidas = movimentacoes
     .filter((m) => m.tipo === "expense")
     .reduce((sum, m) => sum + m.valor, 0);
-
   const saldo = totalEntradas - totalSaidas;
 
   const navItems = [
@@ -98,20 +96,30 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
     { label: "Ajustes", icon: Settings, active: abaAtiva === 3 },
   ];
 
+  const handleExcluirConta = async () => {
+    if (
+      confirm(
+        "TEM CERTEZA? Isso apagará todos os seus dados permanentemente e não pode ser desfeito.",
+      )
+    ) {
+      await deleteAccountAction();
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background-primary relative transition-colors duration-300 flex flex-col">
-      {/* Header Fixo - Ajustado max-w-125 */}
+    <div className="min-h-screen bg-background-primary relative transition-colors duration-300 flex flex-col overflow-x-hidden">
+      {/* HEADER */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-surface border-b border-border-subtle sticky top-0 z-30"
+        className="bg-surface border-b border-border-subtle fixed top-0 left-0 right-0 z-30"
       >
-        <div className="max-w-125 mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-125 mx-auto px-6 py-4 h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             {user?.image ? (
               <Image
                 src={user.image}
-                alt={user.name || "Perfil"}
+                alt="Perfil"
                 width={32}
                 height={32}
                 className="rounded-full border border-primary/20"
@@ -130,9 +138,7 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
               </p>
             </div>
           </div>
-
-          <motion.button
-            whileTap={{ scale: 0.9 }}
+          <button
             onClick={alternarTema}
             className="p-2.5 rounded-xl bg-background-secondary text-text-muted"
           >
@@ -141,17 +147,17 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
             ) : (
               <Moon size={20} />
             )}
-          </motion.button>
+          </button>
         </div>
       </motion.header>
 
-      {/* Conteúdo Principal - Ajustado max-w-125 */}
-      <main className="max-w-125 mx-auto px-6 py-6 flex-1">
+      {/* CONTEÚDO PRINCIPAL */}
+      <main className="max-w-125 mx-auto px-6 py-6 pt-20 pb-32 flex-1 w-full">
         <AnimatePresence mode="wait">
-          {/* ABA 0: DASHBOARD PRINCIPAL */}
+          {/* ABA 0: DASHBOARD */}
           {abaAtiva === 0 && (
             <motion.div
-              key="dashboard"
+              key="dash"
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
@@ -159,10 +165,10 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
             >
               <div>
                 <h2 className="text-2xl font-bold text-text-primary">
-                  Bem-vindo!
+                  Seu Resumo
                 </h2>
                 <p className="text-sm text-text-secondary">
-                  Seu resumo financeiro hoje
+                  Visão geral do seu negócio
                 </p>
               </div>
 
@@ -174,7 +180,7 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
                 />
               )}
 
-              <div className="space-y-4">
+              <div className="grid gap-4">
                 <FinancialCard
                   label="Entradas"
                   amount={totalEntradas}
@@ -195,19 +201,16 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
                 />
               </div>
 
-              <motion.button
-                whileTap={{ scale: 0.98 }}
+              <button
                 onClick={abrirModal}
-                className="w-full bg-primary hover:bg-primary-hover text-white rounded-2xl py-4 font-bold shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                className="w-full bg-primary hover:bg-primary-hover text-white rounded-2xl py-4 font-bold shadow-lg flex items-center justify-center gap-2"
               >
-                <Plus size={24} strokeWidth={3} /> Adicionar movimento
-              </motion.button>
+                <Plus size={24} strokeWidth={3} /> Novo Movimento
+              </button>
 
               <section>
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-bold text-text-primary">
-                    Recentes
-                  </h3>
+                  <h3 className="font-bold text-text-primary">Recentes</h3>
                   <button
                     onClick={() => setAbaAtiva(1)}
                     className="text-xs font-bold text-primary uppercase"
@@ -220,7 +223,7 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
             </motion.div>
           )}
 
-          {/* ABA 1: MOVIMENTAÇÕES COMPLETA */}
+          {/* ABA 1: LISTA */}
           {abaAtiva === 1 && (
             <motion.div
               key="list"
@@ -238,7 +241,7 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
           {/* ABA 2: RELATÓRIOS */}
           {abaAtiva === 2 && (
             <motion.div
-              key="reports"
+              key="rep"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="space-y-6"
@@ -250,40 +253,118 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
             </motion.div>
           )}
 
-          {/* ABA 3: AJUSTES */}
+          {/* ABA 3: AJUSTES (CONFIGURAÇÕES COMPLETAS) */}
           {abaAtiva === 3 && (
             <motion.div
-              key="settings"
+              key="set"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="space-y-6"
             >
               <h2 className="text-2xl font-bold text-text-primary">Ajustes</h2>
-              <div className="space-y-3">
-                <div className="bg-surface border border-border-subtle rounded-2xl p-5 flex items-center gap-4">
-                  {user?.image && (
-                    <Image
-                      src={user.image}
-                      className="w-12 h-12 rounded-full"
-                      width={48}
-                      height={48}
-                      alt=""
-                    />
-                  )}
+
+              {/* Card de Perfil */}
+              <div className="bg-surface border border-border-subtle rounded-2xl p-5 flex items-center gap-4 shadow-sm">
+                {user?.image && (
+                  <Image
+                    src={user.image}
+                    className="w-12 h-12 rounded-full shadow-sm"
+                    width={48}
+                    height={48}
+                    alt=""
+                  />
+                )}
+                <div className="overflow-hidden">
+                  <p className="font-bold text-text-primary leading-none truncate">
+                    {user?.name}
+                  </p>
+                  <p className="text-xs text-text-muted mt-1 truncate">
+                    {user?.email}
+                  </p>
+                </div>
+              </div>
+
+              {/* Grupo: Preferências */}
+              <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden shadow-sm">
+                <button
+                  onClick={alternarTema}
+                  className="w-full flex items-center justify-between p-5 hover:bg-background-secondary transition-colors text-left"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-primary-soft/20 text-primary rounded-lg">
+                      {tema === "escuro" ? (
+                        <Sun size={20} />
+                      ) : (
+                        <Moon size={20} />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-bold text-text-primary text-sm">
+                        Tema do App
+                      </p>
+                      <p className="text-xs text-text-muted capitalize">
+                        {tema}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-text-muted" />
+                </button>
+
+                <div className="h-[1px] bg-border-subtle mx-5" />
+
+                <div className="p-5 flex items-center gap-4 opacity-50">
+                  <div className="p-2 bg-background-secondary text-text-muted rounded-lg">
+                    <Info size={20} />
+                  </div>
                   <div>
-                    <p className="font-bold text-text-primary leading-none">
-                      {user?.name}
+                    <p className="font-bold text-text-primary text-sm">
+                      Versão do App
                     </p>
-                    <p className="text-xs text-text-muted mt-1">
-                      {user?.email}
-                    </p>
+                    <p className="text-xs text-text-muted">MVP 1.0.0-beta</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Grupo: Perigo/Sair */}
+              <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden shadow-sm">
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
-                  className="w-full bg-error/10 text-error rounded-2xl p-5 font-bold flex items-center justify-center gap-2 hover:bg-error/20 transition-all"
+                  className="w-full flex items-center justify-between p-5 hover:bg-background-secondary transition-colors text-left"
                 >
-                  <LogOut size={20} /> Sair da conta
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-background-secondary text-text-muted rounded-lg">
+                      <LogOut size={20} />
+                    </div>
+                    <p className="font-bold text-text-primary text-sm">
+                      Sair da Conta
+                    </p>
+                  </div>
+                  <ChevronRight size={18} className="text-text-muted" />
+                </button>
+
+                <div className="h-[1px] bg-border-subtle mx-5" />
+
+                <button
+                  onClick={handleExcluirConta}
+                  className="w-full flex items-center justify-between p-5 hover:bg-error/5 transition-colors text-left group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-error/10 text-error rounded-lg">
+                      <Trash2 size={20} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-error text-sm">
+                        Excluir minha conta
+                      </p>
+                      <p className="text-[10px] text-error/60 font-medium uppercase tracking-tighter">
+                        Ação irreversível
+                      </p>
+                    </div>
+                  </div>
+                  <ShieldAlert
+                    size={18}
+                    className="text-error/40 group-hover:text-error"
+                  />
                 </button>
               </div>
             </motion.div>
@@ -291,35 +372,35 @@ export function DashboardPage({ user, initialData }: DashboardPageProps) {
         </AnimatePresence>
       </main>
 
-      {/* Botão Flutuante IA - CORREÇÃO: z-50 para ficar sobre o menu */}
+      {/* BOTÃO IA FLUTUANTE - CORREÇÃO: z-50 e bottom maior para não bater no menu */}
       <motion.button
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.6, ease: "backOut" }}
-        whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => setMostrarChat(true)}
-        className="fixed bottom-28 right-6 w-16 h-16 bg-linear-to-br from-primary to-primary-hover rounded-full shadow-2xl flex items-center justify-center z-50"
+        className="fixed bottom-28 right-6 w-16 h-16 bg-linear-to-br from-primary to-primary-hover rounded-full shadow-2xl flex items-center justify-center z-50 text-white"
         style={{ boxShadow: "0 8px 32px rgba(2, 132, 199, 0.4)" }}
       >
-        <Sparkles className="w-7 h-7 text-white" strokeWidth={2.5} />
-
+        <Sparkles className="w-7 h-7" strokeWidth={2.5} />
         <motion.div
           animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 2, repeat: Infinity }}
           className="absolute inset-0 rounded-full bg-primary"
         />
       </motion.button>
 
-      {/* Navegação Inferior - z-40 para ficar abaixo da IA */}
+      {/* MENU INFERIOR - z-40 */}
       <BottomNav items={navItems} onItemClick={setAbaAtiva} />
 
-      {/* Modal de Cadastro/Edição */}
       <AddTransactionModal
         isOpen={modalAberto}
         onClose={fecharModal}
         onAdd={adicionarMovimentacao}
       />
+
+      {/* Banner PWA */}
+      <PWAInstallBanner />
     </div>
   );
 }

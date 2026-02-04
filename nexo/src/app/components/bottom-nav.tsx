@@ -19,7 +19,7 @@ export function BottomNav({ items, onItemClick }: BottomNavProps) {
     <motion.nav
       initial={{ y: 100 }}
       animate={{ y: 0 }}
-      className="sticky bottom-0 left-0 right-0 z-40 bg-surface/80 backdrop-blur-lg border-t border-border-subtle pb-safe h-fit"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-surface/80 backdrop-blur-lg border-t border-border-subtle pb-safe h-fit"
     >
       <div className="max-w-125 mx-auto px-4 py-3">
         <div className="flex items-center justify-between">

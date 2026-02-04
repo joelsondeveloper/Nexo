@@ -15,10 +15,19 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "NEXO | Gestão Inteligente para Microempreendedores",
-  description: "Centralize seu controle financeiro e estoque de forma simples e humana.",
+  description:
+    "Centralize seu controle financeiro e estoque de forma simples e humana.",
   keywords: ["gestão", "financeiro", "microempreendedor", "nexo", "estoque"],
   authors: [{ name: "NEXO Team" }],
-  manifest: "/manifest.json", // Recomendado para PWA no futuro
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "NEXO",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 // Configuração de Viewport para evitar zoom automático em inputs no iOS e definir cor do tema
