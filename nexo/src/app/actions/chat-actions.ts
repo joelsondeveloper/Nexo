@@ -3,14 +3,14 @@
 import { parseFinanceMessage } from "@/src/lib/ai-parser";
 import { createTransactionAction } from "./transaction-actions";
 
-export async function processarMensagemIA(texto: string) {
+export async function processarMensagemIA(texto: string | undefined, audioBase64?: string) {
   try {
     // 1. Chama o Gemini para entender a frase
-    const dadosExtraidos = await parseFinanceMessage(texto);
+    const dadosExtraidos = await parseFinanceMessage(texto || "", audioBase64);
 
     if (dadosExtraidos && dadosExtraidos.valor > 0) {
       // 2. Registra no banco de dados Supabase
-      const res = await createTransactionAction({
+      await createTransactionAction({
         descricao: dadosExtraidos.descricao,
         valor: dadosExtraidos.valor,
         tipo: dadosExtraidos.tipo,

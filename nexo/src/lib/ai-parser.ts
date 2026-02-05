@@ -2,7 +2,7 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
 
-export async function parseFinanceMessage(text: string) {
+export async function parseFinanceMessage(text: string, audioBase64?: string) {
   const model = genAI.getGenerativeModel({
     model: "gemini-3-flash-preview",
     generationConfig: {
@@ -28,8 +28,19 @@ export async function parseFinanceMessage(text: string) {
     - NUNCA retorne nada além do JSON puro.`
   });
 
+  const promptParts: any[] = [text];
+
+  if (audioBase64) {
+    promptParts.push({
+      inlineData: {
+        data: audioBase64,
+        mimeType: "audio/webm" // Formato padrão do MediaRecorder no Chrome/Android
+      }
+    });
+  }
+
   try {
-    const result = await model.generateContent(text);
+    const result = await model.generateContent(promptParts);
     return JSON.parse(result.response.text());
   } catch (error) {
     console.error("Erro na IA:", error);
